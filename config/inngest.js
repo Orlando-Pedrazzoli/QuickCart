@@ -2,14 +2,14 @@ import { Inngest } from 'inngest';
 import connectDB from './db';
 import User from '@/models/User';
 
-// Create a client to send and receive events
+// Criação do cliente para enviar e receber eventos
 export const inngest = new Inngest({ id: 'quickcart-next' });
 
-// Inngest function to save user data to a database
+// Função Inngest para salvar dados de usuário no banco de dados
 export const syncUserCreation = inngest.createFunction(
   {
     id: 'sync-user-from-clerk',
-    event: 'clerk/user.created',
+    event: 'clerk/user.created', // Evento correto
   },
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
@@ -27,12 +27,12 @@ export const syncUserCreation = inngest.createFunction(
   }
 );
 
-// Inngest Function to update
+// Função Inngest para atualizar dados de usuário
 export const syncUserUpdation = inngest.createFunction(
   {
     id: 'update-user-from-clerk',
+    event: 'clerk/user.updated', // Evento correto
   },
-  { event: 'clerk/user.updated' },
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
@@ -43,17 +43,18 @@ export const syncUserUpdation = inngest.createFunction(
       name: first_name + ' ' + last_name,
       imageUrl: image_url,
     };
+
     await connectDB();
     await User.findByIdAndUpdate(id, userData);
   }
 );
 
-// Inngest Function to delete user from database
+// Função Inngest para deletar o usuário do banco de dados
 export const syncUserDeletion = inngest.createFunction(
   {
     id: 'delete-user-with-clerk',
+    event: 'clerk/user.deleted', // Evento correto
   },
-  { event: 'clerk/user.deleted' },
   async ({ event }) => {
     const { id } = event.data;
 
