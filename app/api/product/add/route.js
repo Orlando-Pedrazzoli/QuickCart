@@ -1,5 +1,7 @@
+import connectDB from '@/config/db';
 import authSeller from '@/lib/authSeller';
-import { getAuth } from '@clerk/nextjs/dist/types/server';
+import Product from '@/models/Product';
+import { getAuth } from '@clerk/nextjs/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { NextResponse } from 'next/server';
 
@@ -15,26 +17,27 @@ export async function POST(request) {
     const { userId } = getAuth(request);
 
     const isSeller = await authSeller(userId);
-
     if (!isSeller) {
-      return NextResponse.json({ success: false, message: 'not authorized' });
+      return NextResponse.json(
+        { success: false, message: 'Not authorized' },
+        { status: 403 }
+      );
     }
 
     const formData = await request.formData();
-
     const name = formData.get('name');
     const description = formData.get('description');
-    const vategory = formData.get('category');
+    const category = formData.get('category');
     const price = formData.get('price');
     const offerPrice = formData.get('offerPrice');
 
     const files = formData.getAll('images');
 
-    if (!files || files.lenngth === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'not files uploaded',
-      });
+    if (!files || files.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'No files uploaded' },
+        { status: 400 }
+      );
     }
 
     const result = await Promise.all(
@@ -42,7 +45,8 @@ export async function POST(request) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        return new Promisse((resolve, reject) => {
+        return new Promise((resolve, reject) => {
+          // Corrigido "Promisse" para "Promise"
           const stream = cloudinary.uploader.upload_stream(
             { resource_type: 'auto' },
             (error, result) => {
@@ -58,6 +62,36 @@ export async function POST(request) {
       })
     );
 
-    const image = result.map(result => result.secure_url);
-  } catch (error) {}
+    const image = result.map(res => res.secure_url);
+
+    await connectDB();
+    const newProduct = await Product.create({
+      userId,
+      name,
+      description,
+      category,
+      price: Number(price),
+      offerPrice: Number(offerPrice),
+      image,
+      date: Date.now(),
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Upload successful',
+        newProduct,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('Error in /api/product/add:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }
